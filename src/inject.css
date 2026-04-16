@@ -27,6 +27,14 @@
   visibility: unset;
 }
 
+/* position the icon inline in file headers on files changed view */
+.open-in-ide-icon-file-header {
+  display: inline-flex;
+  margin-left: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 /* position the icon correctly when the 'outdated' label is visible */
 .Label + .open-in-ide-icon {
   margin-left: 2px;

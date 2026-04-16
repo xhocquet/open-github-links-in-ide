@@ -174,20 +174,32 @@ const run = async () => {
     // --------------------------------------------
 
     if (OPTIONS.showIconOnFileBlockHeaders || OPTIONS.showIconOnLineNumbers) {
-      let inFilesChangedView = true
+      const repo = window.location.href.split("/")[4]
 
-      // select file blocks
-      let primaryLinks = document.querySelectorAll<HTMLAnchorElement>(".file a.Link--primary[title]") // in files changed view
+      let viewType: "filesChanged" | "filesChangedReact" | "discussion" = "filesChanged"
+
+      // select file blocks — try legacy files changed view first
+      let primaryLinks = document.querySelectorAll<HTMLAnchorElement>(".file a.Link--primary[title]")
 
       if (!primaryLinks.length) {
-        primaryLinks = document.querySelectorAll<HTMLAnchorElement>(".js-comment-container a.Link--primary.text-mono") // in discussion
-        inFilesChangedView = false
+        // try discussion view
+        primaryLinks = document.querySelectorAll<HTMLAnchorElement>(".js-comment-container a.Link--primary.text-mono")
+        if (primaryLinks.length) {
+          viewType = "discussion"
+        }
       }
 
-      const repo = window.location.href.split("/")[4]
+      if (!primaryLinks.length) {
+        // try React-based files changed view (new GitHub UI)
+        primaryLinks = document.querySelectorAll<HTMLAnchorElement>('a[href*="#diff-"].Link--primary')
+        if (primaryLinks.length) {
+          viewType = "filesChangedReact"
+        }
+      }
 
       primaryLinks.forEach(linkElement => {
         const file = (linkElement.title || linkElement.innerText)
+          .replace(/[\u200E\u200F\u200B\u200C\u200D\uFEFF]/g, "") // strip invisible Unicode marks
           .split("→") // when file was renamed
           .pop()
           ?.trim()
@@ -197,55 +209,58 @@ const run = async () => {
 
         let lineNumberForFileBlock
 
-        const fileElement = linkElement.closest(inFilesChangedView ? ".file" : ".js-comment-container")
-
-        if (fileElement) {
-          if (!inFilesChangedView) {
-            // in discussion
+        if (viewType === "discussion") {
+          const fileElement = linkElement.closest(".js-comment-container")
+          if (fileElement) {
             const lineNumberNodes = fileElement.querySelectorAll("td[data-line-number]")
-
-            if (lineNumberNodes.length === 0) return // length can be equal to zero in case of resolved comment for example
-
-            // get last line number
+            if (lineNumberNodes.length === 0) return // resolved comment with no lines
             lineNumberForFileBlock = lineNumberNodes[lineNumberNodes.length - 1].getAttribute("data-line-number")
-          } else {
+          }
+        } else if (viewType === "filesChanged") {
+          const fileElement = linkElement.closest(".file")
+          if (fileElement) {
             const firstLineNumberNode = fileElement.querySelector(
               "td.blob-num-deletion[data-line-number], td.blob-num-addition[data-line-number]",
             )
-            // get first line number
             lineNumberForFileBlock = firstLineNumberNode?.getAttribute("data-line-number")
           }
-        } else {
-          // no line number available
         }
+        // filesChangedReact: line numbers not easily accessible from the header, skip for now
 
-        if (
-          OPTIONS.showIconOnFileBlockHeaders &&
-          // don't add a new icon if icon already exists
-          !linkElement.parentNode?.querySelector(".open-in-ide-icon")
-        ) {
+        if (OPTIONS.showIconOnFileBlockHeaders && !linkElement.parentNode?.querySelector(".open-in-ide-icon")) {
           const editorIconElement = generateIconElement(repo, file, lineNumberForFileBlock)
 
-          linkElement.parentNode?.insertBefore(editorIconElement, null)
+          if (viewType === "filesChanged") {
+            // Insert inside the Truncate span, inline with the file name
+            editorIconElement.classList.add("open-in-ide-icon-file-header")
+            linkElement.parentNode?.insertBefore(editorIconElement, linkElement.nextSibling)
+          } else if (viewType === "filesChangedReact") {
+            // React-based diff view — insert after the file name link
+            editorIconElement.classList.add("open-in-ide-icon-file-header")
+            linkElement.parentNode?.insertBefore(editorIconElement, linkElement.nextSibling)
+          } else {
+            linkElement.parentNode?.insertBefore(editorIconElement, null)
+          }
           addedIconsCounter++
         }
 
-        // add icon on each line number
-        if (OPTIONS.showIconOnLineNumbers && fileElement) {
-          const clickableLineNumbersNodes = fileElement.querySelectorAll("td.blob-num[data-line-number]")
+        // add icon on each line number (legacy views only)
+        if (OPTIONS.showIconOnLineNumbers && viewType !== "filesChangedReact") {
+          const fileElement = linkElement.closest(viewType === "filesChanged" ? ".file" : ".js-comment-container")
+          if (fileElement) {
+            const clickableLineNumbersNodes = fileElement.querySelectorAll("td.blob-num[data-line-number]")
 
-          clickableLineNumbersNodes.forEach(lineNumberNode => {
-            // don't add a new icon if icon already exists
-            if (lineNumberNode.querySelector(".open-in-ide-icon")) return
+            clickableLineNumbersNodes.forEach(lineNumberNode => {
+              if (lineNumberNode.querySelector(".open-in-ide-icon")) return
 
-            const lineNumber = lineNumberNode.getAttribute("data-line-number")
+              const lineNumber = lineNumberNode.getAttribute("data-line-number")
+              const editorIconElement = generateIconElement(repo, file, lineNumber)
 
-            const editorIconElement = generateIconElement(repo, file, lineNumber)
-
-            lineNumberNode.classList.add("js-open-in-ide-icon-added")
-            lineNumberNode.appendChild(editorIconElement)
-            addedIconsCounter++
-          })
+              lineNumberNode.classList.add("js-open-in-ide-icon-added")
+              lineNumberNode.appendChild(editorIconElement)
+              addedIconsCounter++
+            })
+          }
         }
       })
     }
