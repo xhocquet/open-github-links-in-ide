@@ -49,6 +49,11 @@ const run = async () => {
       location.href = url
       return url
     },
+    cursor: (repo: string, file: string, line?: string) => {
+      const url = `cursor://file/${OPTIONS.localPathForRepositories}/${repo}/${file}:${line ?? "1"}`
+      location.href = url
+      return url
+    },
     phpstorm: (repo: string, file: string, line?: string) => {
       const url = `phpstorm://open?file=${OPTIONS.localPathForRepositories}/${repo}/${file}&line=${line ?? "1"}`
       location.href = url
@@ -115,12 +120,37 @@ const run = async () => {
     // -------------------------------
 
     if (OPTIONS.showIconInFileTree) {
-      const files = document.querySelectorAll(
+      // New React-based file tree (target large-screen cells to avoid hidden duplicates)
+      const reactFiles = document.querySelectorAll<HTMLAnchorElement>(
+        ".react-directory-row-name-cell-large-screen .react-directory-truncate a[title]",
+      )
+
+      // Legacy file tree (pre-React GitHub UI)
+      const legacyFiles = document.querySelectorAll(
         '[aria-labelledby="files"].js-navigation-container > .Box-row.js-navigation-item .css-truncate',
       )
 
-      files.forEach(fileElement => {
-        // don't add a new icon if icon already exists
+      reactFiles.forEach(linkElement => {
+        const parentEl = linkElement.closest(".react-directory-truncate")
+        if (!parentEl) return
+        if (parentEl.querySelector(".open-in-ide-icon")) return
+
+        const fileUrl = linkElement.getAttribute("href")
+        if (!fileUrl || !filePathRegExp.test(fileUrl)) return
+
+        const pathInfo = filePathRegExp.exec(fileUrl)
+        const repo = pathInfo?.[1]
+        const file = pathInfo?.[3]
+        if (!repo || !file) return
+
+        const editorIconElement = generateIconElement(repo, file)
+        editorIconElement.classList.add("open-in-ide-icon-file-explorer")
+
+        parentEl.insertBefore(editorIconElement, linkElement.nextSibling)
+        addedIconsCounter++
+      })
+
+      legacyFiles.forEach(fileElement => {
         if (fileElement.parentNode?.querySelector(".open-in-ide-icon")) return
 
         const fileUrl = fileElement.querySelector("a")?.getAttribute("href")
@@ -157,7 +187,7 @@ const run = async () => {
       const repo = window.location.href.split("/")[4]
 
       primaryLinks.forEach(linkElement => {
-        const file = linkElement.innerText
+        const file = (linkElement.title || linkElement.innerText)
           .split("→") // when file was renamed
           .pop()
           ?.trim()

@@ -2,6 +2,10 @@
 
 Browser extension (Chrome + Firefox) that opens GitHub file links directly in your IDE.
 
+## Setup
+
+Run `.context/setup.sh` to install dependencies and build the extension. New workspaces should run this first.
+
 ## Commands
 
 - `yarn install --frozen-lockfile` — install dependencies

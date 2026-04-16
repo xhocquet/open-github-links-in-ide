@@ -1,4 +1,4 @@
-/* position the icon correctly in file explorer */
+/* position the icon correctly in file explorer (legacy) */
 [aria-labelledby="files"].js-navigation-container > .Box-row.js-navigation-item [role="rowheader"] {
   display: flex;
   justify-content: space-between;
@@ -22,7 +22,8 @@
 }
 
 /* show the icon when cursor hovers over the row */
-.js-navigation-item:hover .open-in-ide-icon-file-explorer {
+.js-navigation-item:hover .open-in-ide-icon-file-explorer,
+.react-directory-row:hover .open-in-ide-icon-file-explorer {
   visibility: unset;
 }
 

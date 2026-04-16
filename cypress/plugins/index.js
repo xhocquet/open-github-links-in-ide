@@ -2,7 +2,8 @@ const path = require("path")
 
 module.exports = on => {
   on("before:browser:launch", (browser, launchOptions) => {
-    launchOptions.extensions.push(path.join(__dirname, `../../dist/${browser.name}`))
+    const extPath = path.join(__dirname, `../../dist/${browser.name}`)
+    launchOptions.extensions.push(extPath)
     return launchOptions
   })
 }
